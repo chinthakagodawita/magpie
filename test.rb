@@ -7,7 +7,10 @@ current_year = Time.now.year
 vcdq_rss_url = "#{VCDQ_RSS_URL_BASE}/#{current_year-2}_#{current_year-1}_#{current_year}/0"
 
 # Init the logger.
-logger = Logging.logger(STDOUT)
+logger = Logging.logger('vcdq')
+logger.add_appenders(
+  Logging.appenders.stdout
+)
 logger.level = :debug
 
 # Get movie info for the title
@@ -58,7 +61,7 @@ def get_movie_info (title_parts, categories)
   end
 
   # If we still have nothing, sorry, there's nothing I can do
-  # @TODO: Log this incident and continue to the next title
+  # @TODO: Throw exception instead
   if title_boundary.nil?
     logger.debug "Could not parse movie info for title '#{title_parts.join('.')}'"
     return nil
