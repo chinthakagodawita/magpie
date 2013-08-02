@@ -1,12 +1,14 @@
 require 'rss'
 require 'feedzirra'
 
-# @TODO: See if we can get a saner URL
-VCDQ_RSS_URL = 'http://www.vcdq.com/browse/rss/1/1_2/3_2/9_11_3_2/0/2011_2012_2013_2014/0'
+# Build custom URL: 'Scene+P2P', 'DVDRip' (or greater), only new (last 3 years).
+VCDQ_RSS_URL_BASE = 'http://www.vcdq.com/browse/rss/1/1_2/3_2/9_11_3_2/0'
+current_year = Time.now.year
+vcdq_rss_url = "#{VCDQ_RSS_URL_BASE}/#{current_year-2}_#{current_year-1}_#{current_year}/0"
 
 # Get movie info for the title
 # @see http://en.wikipedia.org/wiki/Standard_(warez)#Naming
-def get_movie_info (title_parts)
+def get_movie_info (title_parts, categories)
   title = ''
   # We could have multiple years, save all that we find
   years_found = Hash.new
@@ -35,63 +37,32 @@ def get_movie_info (title_parts)
         break
       end
     end
-
-    # If we still have nothing, sorry, there's nothing I can do
-    # @TODO: Log this incident and continue to the next title
-    return nil if title_boundary.nil?
   end
 
-  # Now check for the quality
-  # The last title part will always be the group name (and sometimes the codec)
-  # We don't need it, let's discard it
-  title_parts.pop
-
-  # @TODO: Load this
-  # @TODO: add a 'matching type', e.g. some values will check for equality,
-  # others for partials
-  possible_sources = [
-    'BluRay',
-    'BDRip',
-    'HDRip',
-    'DVD',
-    'DVDRip',
-    'DVD-Rip',
-    'BRRip',
-    'BR-Rip',
-    'Web' # @TODO: add partial match support,
-  ]
-
-  # Also iterate over possible sources, removing the '-' (if in the middle of a
-  # word) and adding the resulting value to the array
-
-  # Downcase possible source to minimise error
-  possible_sources.map!{|c| c.downcase}
-
-  # Going backwards through the remaining parts, see if they match one of
-  # our source keywords.
-  # If they do, brilliant, we now have a source
-  source = nil
-  source_index = nil
-  title_parts_reverse = title_parts.reverse
-  title_parts_reverse.each_with_index do |title_part, title_index|
-    if possible_sources.include? title_part.downcase
-      source = title_part
-      source_index = title_index
-      break
+  # If there's nothing at this point, make a wild guess and try using the
+  # quality as the boundary.
+  if title_boundary.nil?
+    # See if the quality is in the title.
+    # We know that the quality is always the fourth category.
+    quality = categories[3]
+    title_parts.each_with_index do |title_part, title_index|
+      if title_part == quality
+        title_boundary = title_index
+        break
+      end
     end
   end
 
-  # This is really only relevant if we're dealing with a HD source
-  quality = nil
+  # If we still have nothing, sorry, there's nothing I can do
+  # @TODO: Log this incident and continue to the next title
+  return nil if title_boundary.nil?
 
   actual_title_parts = title_parts.slice(0, title_boundary)
   title = actual_title_parts.join(' ')
 
   return {
     title: title,
-    year: year,
-    source: source,
-    quality: quality
+    year: year
   }
 end
 
@@ -109,17 +80,12 @@ end
 
 # response = RSS::Parser.parse(VCDQ_RSS_URL, false)
 # feed_parsed = response.channel.items
-feed = Feedzirra::Feed.fetch_raw(VCDQ_RSS_URL)
-# puts feed
-# feed.sanitize_entries!
+feed = Feedzirra::Feed.fetch_raw(vcdq_rss_url)
 feed_parsed = Feedzirra::Feed.parse(feed)
-feed_parsed = feed_parsed.entries
-# puts feed_parsed.items
-# puts feed.url
-# puts feed.feed_url
-puts "======== loaded #{feed_parsed.length} items"
+
+puts "======== loaded #{feed_parsed.entries.length} items"
 i = 0
-feed_parsed.each do |movie|
+feed_parsed.entries.each do |movie|
   movie_title_parts = movie.title.split('.')
 
   # Only continue if this movie meets our strict criteria
@@ -130,21 +96,18 @@ feed_parsed.each do |movie|
   # puts movie
   puts movie.title
 
-  puts movie.categories
-
-  # puts movie_title_parts
-  movie_info = get_movie_info(movie_title_parts)
+  movie_info = get_movie_info(movie_title_parts, movie.categories)
 
   # If we couldn't parse any info, just log this incident and move on
   # @TODO: reformat to throw exception instead
   next if movie_info.nil?
 
-  puts "\tTITLE: #{movie_info[:title]}"
-  puts "\tYEAR: #{movie_info[:year]}"
+  # We know that the fourth category is always the quality, save it for later.
+  movie_info[:quality] = movie.categories[3]
 
   puts movie_info
 
-  i = i+1
+  i += 1
 end
 
 puts "======== only #{i} were good"
