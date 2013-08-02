@@ -73,18 +73,6 @@ def get_movie_info (title_parts, categories)
   }
 end
 
-# Checks to see if movie meets a certain set of critera
-# @TODO: Load criteria instead of hardcoding
-def does_movie_meet_criteria (title_parts)
-  bad_criteria = ['CAM', 'TS']
-
-  title_parts.each do |title_part|
-    return false if bad_criteria.include? title_part
-  end
-
-  return true
-end
-
 # response = RSS::Parser.parse(VCDQ_RSS_URL, false)
 # feed_parsed = response.channel.items
 feed = Feedzirra::Feed.fetch_raw(vcdq_rss_url)
@@ -93,10 +81,6 @@ feed_parsed = Feedzirra::Feed.parse(feed)
 i = 0
 feed_parsed.entries.each do |movie|
   movie_title_parts = movie.title.split('.')
-
-  # Only continue if this movie meets our strict criteria
-  # @TODO: Save this record for later so that we ignore it in future
-  next if !does_movie_meet_criteria(movie_title_parts)
 
   # puts movie
   logger.debug("Processing title: #{movie.title}")
