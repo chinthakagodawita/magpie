@@ -1,10 +1,14 @@
-require 'rss'
 require 'feedzirra'
+require 'logging'
 
 # Build custom URL: 'Scene+P2P', 'DVDRip' (or greater), only new (last 3 years).
 VCDQ_RSS_URL_BASE = 'http://www.vcdq.com/browse/rss/1/1_2/3_2/9_11_3_2/0'
 current_year = Time.now.year
 vcdq_rss_url = "#{VCDQ_RSS_URL_BASE}/#{current_year-2}_#{current_year-1}_#{current_year}/0"
+
+# Init the logger.
+logger = Logging.logger(STDOUT)
+logger.level = :debug
 
 # Get movie info for the title
 # @see http://en.wikipedia.org/wiki/Standard_(warez)#Naming
@@ -55,7 +59,10 @@ def get_movie_info (title_parts, categories)
 
   # If we still have nothing, sorry, there's nothing I can do
   # @TODO: Log this incident and continue to the next title
-  return nil if title_boundary.nil?
+  if title_boundary.nil?
+    logger.debug "Could not parse movie info for title '#{title_parts.join('.')}'"
+    return nil
+  end
 
   actual_title_parts = title_parts.slice(0, title_boundary)
   title = actual_title_parts.join(' ')
@@ -83,7 +90,6 @@ end
 feed = Feedzirra::Feed.fetch_raw(vcdq_rss_url)
 feed_parsed = Feedzirra::Feed.parse(feed)
 
-puts "======== loaded #{feed_parsed.entries.length} items"
 i = 0
 feed_parsed.entries.each do |movie|
   movie_title_parts = movie.title.split('.')
@@ -92,9 +98,8 @@ feed_parsed.entries.each do |movie|
   # @TODO: Save this record for later so that we ignore it in future
   next if !does_movie_meet_criteria(movie_title_parts)
 
-  puts '=== found a movie: ==='
   # puts movie
-  puts movie.title
+  logger.debug("Processing title: #{movie.title}")
 
   movie_info = get_movie_info(movie_title_parts, movie.categories)
 
@@ -105,11 +110,10 @@ feed_parsed.entries.each do |movie|
   # We know that the fourth category is always the quality, save it for later.
   movie_info[:quality] = movie.categories[3]
 
-  puts movie_info
+  logger.debug("Parsed movie info: #{movie_info}")
+  # puts movie_info
 
   i += 1
 end
 
-puts "======== only #{i} were good"
-
-# puts feed
+logger.debug("======== only #{i}/#{feed_parsed.entries.length} were good")
