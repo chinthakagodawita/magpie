@@ -43,6 +43,8 @@ def get_movie_info (title_parts, categories)
   title = ''
   # We could have multiple years, save all that we find
   years_found = Hash.new
+  # We know that the quality is always the fourth category.
+  quality = categories[3]
 
   # Iterate over all the title parts looking for years (there could be many!)
   title_parts.each_with_index do |title_part, title_index|
@@ -74,8 +76,6 @@ def get_movie_info (title_parts, categories)
   # quality as the boundary.
   if title_boundary.nil?
     # See if the quality is in the title.
-    # We know that the quality is always the fourth category.
-    quality = categories[3]
     title_parts.each_with_index do |title_part, title_index|
       if title_part == quality
         title_boundary = title_index
@@ -96,7 +96,8 @@ def get_movie_info (title_parts, categories)
 
   return {
     title: title,
-    year: year
+    year: year,
+    quality: quality
   }
 end
 
@@ -114,14 +115,12 @@ feed_parsed.entries.each do |movie_item|
   # puts movie_item
   logger.debug("Processing title: #{movie_item.title}")
 
+  # Parse the title and categories for useful info.
   movie_info = get_movie_info(movie_title_parts, movie_item.categories)
 
   # If we couldn't parse any info, just log this incident and move on
   # @TODO: reformat to throw exception instead
   next if movie_info.nil?
-
-  # We know that the fourth category is always the quality, save it for later.
-  movie_info[:quality] = movie_item.categories[3]
 
   # Create a movie.
   movie = {
@@ -138,33 +137,22 @@ feed_parsed.entries.each do |movie_item|
     i: i
   }
 
+  # Only insert this movie if it doesn't already exist (not quite an 'upsert').
   movie_exists = movies_collection.find_one({
     title_lower: movie[:title_lower],
     year: movie[:year]
   });
-
   if !movie_exists
     # Do an insert of this movie.
     movies_collection.insert(movie)
   end
 
-  # Do an update/insert of this release.
-  logger.debug("trying for #{movie[:title_lower]}")
-  # test = movies_collection.find_one({
-  #   title_lower: movie[:title_lower],
-  #   year: movie[:year],
-  #   'releases.url' => {
-  #     '$ne' => movie_item.url
-  #   }
-  # });
-  # logger.debug(" THE TEST ")
-  # logger.debug(test)
-
+  # Do an insert of this release if it's not already there.
   movies_collection.update({
     title_lower: movie[:title_lower],
     year: movie[:year],
     'releases.url' => {
-      '$ne' => movie_item.url
+      '$ne' => release.url
     }
   }, {
     '$push' => {
