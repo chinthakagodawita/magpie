@@ -12,34 +12,16 @@ SAVED_UNCHANGED = 1
 SAVED_NEW = 2
 
 # Init the logger.
-logger = Logging.logger('vcdq')
-logger.add_appenders(
+$logger = Logging.logger('vcdq.log')
+$logger.add_appenders(
   Logging.appenders.stdout
 )
-logger.level = :debug
+$logger.level = :debug
 
 # Init MongoDB.
 include Mongo
 db = MongoClient.new('localhost', 27017).db('vcdq')
 movies_collection = db.collection('movies')
-
-# class Movie
-#   include MongoMapper::Document
-
-#   key :title, String
-#   key :year, Integer
-
-#   many :releases
-# end
-
-# # Mongo model for a movie release
-# class Release
-#   include MongoMapper::EmbeddedDocument
-
-#   key :quality, String
-#   key :url, String
-#   key :date, String
-# end
 
 # Get movie info for the title
 # @see http://en.wikipedia.org/wiki/Standard_(warez)#Naming
@@ -91,7 +73,7 @@ def get_movie_info (title_parts, categories)
   # If we still have nothing, sorry, there's nothing I can do
   # @TODO: Throw exception instead
   if title_boundary.nil?
-    logger.debug "Could not parse movie info for title '#{title_parts.join('.')}'"
+    $logger.debug "Could not parse movie info for title '#{title_parts.join('.')}'"
     return nil
   end
 
@@ -107,15 +89,14 @@ end
 
 # Save a movie into mongo.
 # @TODO: Error checking.
-def save_movie (movie)
+def save_movie (movie, collection)
   # Only insert this movie if it doesn't already exist (not quite an 'upsert').
-  movie_exists = movies_collection.find_one({
-    title_lower: movie[:title_lower],
-    year: movie[:year]
+  movie_exists = collection.find_one({
+    _id: movie[:_id]
   });
   if !movie_exists
     # Do an insert of this movie.
-    movies_collection.insert(movie)
+    collection.insert(movie)
     return SAVED_NEW
   end
 
@@ -125,13 +106,12 @@ end
 # Save a release as part of a movie in mongo.
 # @TODO: Error checking.
 # @TODO: Check if inserted or not and return appropriate flag
-def save_release (release)
+def save_release (release, movie_id, collection)
   # Do an insert of this release if it's not already there.
-  movies_collection.update({
-    title_lower: movie[:title_lower],
-    year: movie[:year],
+  collection.update({
+    _id: movie_id,
     'releases.url' => {
-      '$ne' => release.url
+      '$ne' => release[:url]
     }
   }, {
     '$push' => {
@@ -140,6 +120,10 @@ def save_release (release)
   })
 
   return SAVED_NEW
+end
+
+def get_movie_document_id (title, year)
+  return title.gsub(' ', '').downcase + ':' + year.to_s
 end
 
 # response = RSS::Parser.parse(VCDQ_RSS_URL, false)
@@ -155,7 +139,7 @@ feed_parsed.entries.each do |movie_item|
   movie_title_parts = movie_item.title.split('.')
 
   # puts movie_item
-  logger.debug("Processing title: #{movie_item.title}")
+  $logger.debug("Processing title: #{movie_item.title}")
 
   # Parse the title and categories for useful info.
   movie_info = get_movie_info(movie_title_parts, movie_item.categories)
@@ -165,14 +149,16 @@ feed_parsed.entries.each do |movie_item|
   next if movie_info.nil?
 
   # Create a movie.
+  movie_document_id = get_movie_document_id(movie_info[:title], movie_info[:year])
   movie = {
+    _id: movie_document_id,
     title: movie_info[:title],
     title_lower: movie_info[:title].downcase,
     year: movie_info[:year],
     i: i,
     releases: Array.new
   }
-  save_movie(movie)
+  save_movie(movie, movies_collection)
 
   # Create a release
   release = {
@@ -181,11 +167,11 @@ feed_parsed.entries.each do |movie_item|
     date: movie_item.published,
     i: i
   }
-  save_release(release)
+  save_release(release, movie_document_id, movies_collection)
 
-  # logger.debug("Parsed movie info: #{movie_info}")
+  # $logger.debug("Parsed movie info: #{movie_info}")
 
   i += 1
 end
 
-logger.debug("======== only #{i}/#{feed_parsed.entries.length} were good")
+$logger.debug("======== only #{i}/#{feed_parsed.entries.length} were good")
