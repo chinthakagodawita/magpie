@@ -7,6 +7,10 @@ VCDQ_RSS_URL_BASE = 'http://www.vcdq.com/browse/rss/1/1_2/3_2/9_11_3_2/0'
 current_year = Time.now.year
 vcdq_rss_url = "#{VCDQ_RSS_URL_BASE}/#{current_year-2}_#{current_year-1}_#{current_year}/0"
 
+# Save indicators
+SAVED_UNCHANGED = 1
+SAVED_NEW = 2
+
 # Init the logger.
 logger = Logging.logger('vcdq')
 logger.add_appenders(
@@ -101,10 +105,48 @@ def get_movie_info (title_parts, categories)
   }
 end
 
+# Save a movie into mongo.
+# @TODO: Error checking.
+def save_movie (movie)
+  # Only insert this movie if it doesn't already exist (not quite an 'upsert').
+  movie_exists = movies_collection.find_one({
+    title_lower: movie[:title_lower],
+    year: movie[:year]
+  });
+  if !movie_exists
+    # Do an insert of this movie.
+    movies_collection.insert(movie)
+    return SAVED_NEW
+  end
+
+  return SAVED_UNCHANGED
+end
+
+# Save a release as part of a movie in mongo.
+# @TODO: Error checking.
+# @TODO: Check if inserted or not and return appropriate flag
+def save_release (release)
+  # Do an insert of this release if it's not already there.
+  movies_collection.update({
+    title_lower: movie[:title_lower],
+    year: movie[:year],
+    'releases.url' => {
+      '$ne' => release.url
+    }
+  }, {
+    '$push' => {
+      releases: release
+    }
+  })
+
+  return SAVED_NEW
+end
+
 # response = RSS::Parser.parse(VCDQ_RSS_URL, false)
 # feed_parsed = response.channel.items
+
+# @TODO: Error checking.
 feed = Feedzirra::Feed.fetch_raw(vcdq_rss_url)
-puts feed
 feed_parsed = Feedzirra::Feed.parse(feed)
 
 i = 0
@@ -130,35 +172,16 @@ feed_parsed.entries.each do |movie_item|
     i: i,
     releases: Array.new
   }
+  save_movie(movie)
+
+  # Create a release
   release = {
     quality: movie_info[:quality],
     url: movie_item.url,
     date: movie_item.published,
     i: i
   }
-
-  # Only insert this movie if it doesn't already exist (not quite an 'upsert').
-  movie_exists = movies_collection.find_one({
-    title_lower: movie[:title_lower],
-    year: movie[:year]
-  });
-  if !movie_exists
-    # Do an insert of this movie.
-    movies_collection.insert(movie)
-  end
-
-  # Do an insert of this release if it's not already there.
-  movies_collection.update({
-    title_lower: movie[:title_lower],
-    year: movie[:year],
-    'releases.url' => {
-      '$ne' => release.url
-    }
-  }, {
-    '$push' => {
-      releases: release
-    }
-  })
+  save_release(release)
 
   # logger.debug("Parsed movie info: #{movie_info}")
 
