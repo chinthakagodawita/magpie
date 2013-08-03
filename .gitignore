@@ -1,0 +1,5 @@
+# Ignore all sublime working files
+*.sublime-*
+
+# All log files
+*.log
