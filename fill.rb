@@ -12,7 +12,7 @@ SAVED_UNCHANGED = 1
 SAVED_NEW = 2
 
 # Init the logger.
-$logger = Logging.logger('vcdq.log')
+$logger = Logging.logger('vcdq-fill.log')
 $logger.add_appenders(
   Logging.appenders.stdout
 )
@@ -133,8 +133,9 @@ end
 feed = Feedzirra::Feed.fetch_raw(vcdq_rss_url)
 feed_parsed = Feedzirra::Feed.parse(feed)
 
+current_date = Time.now
+
 i = 0
-parsed_movies = Hash.new
 feed_parsed.entries.each do |movie_item|
   movie_title_parts = movie_item.title.split('.')
 
@@ -155,7 +156,7 @@ feed_parsed.entries.each do |movie_item|
     title: movie_info[:title],
     title_lower: movie_info[:title].downcase,
     year: movie_info[:year],
-    i: i,
+    created: current_date,
     releases: Array.new
   }
   save_movie(movie, movies_collection)
@@ -165,7 +166,7 @@ feed_parsed.entries.each do |movie_item|
     quality: movie_info[:quality],
     url: movie_item.url,
     date: movie_item.published,
-    i: i
+    created: current_date
   }
   save_release(release, movie_document_id, movies_collection)
 
