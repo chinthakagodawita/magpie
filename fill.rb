@@ -129,50 +129,54 @@ end
 # response = RSS::Parser.parse(VCDQ_RSS_URL, false)
 # feed_parsed = response.channel.items
 
-# @TODO: Error checking.
-feed = Feedzirra::Feed.fetch_raw(vcdq_rss_url)
-feed_parsed = Feedzirra::Feed.parse(feed)
+def get_latest_movies (vcdq_rss_url, movies_collection)
+  # @TODO: Error checking.
+  feed = Feedzirra::Feed.fetch_raw(vcdq_rss_url)
+  feed_parsed = Feedzirra::Feed.parse(feed)
 
-current_date = Time.now
+  current_date = Time.now
 
-i = 0
-feed_parsed.entries.each do |movie_item|
-  movie_title_parts = movie_item.title.split('.')
+  i = 0
+  feed_parsed.entries.each do |movie_item|
+    movie_title_parts = movie_item.title.split('.')
 
-  # puts movie_item
-  $logger.debug("Processing title: #{movie_item.title}")
+    # puts movie_item
+    $logger.debug("Processing title: #{movie_item.title}")
 
-  # Parse the title and categories for useful info.
-  movie_info = get_movie_info(movie_title_parts, movie_item.categories)
+    # Parse the title and categories for useful info.
+    movie_info = get_movie_info(movie_title_parts, movie_item.categories)
 
-  # If we couldn't parse any info, just log this incident and move on
-  # @TODO: reformat to throw exception instead
-  next if movie_info.nil?
+    # If we couldn't parse any info, just log this incident and move on
+    # @TODO: reformat to throw exception instead
+    next if movie_info.nil?
 
-  # Create a movie.
-  movie_document_id = get_movie_document_id(movie_info[:title], movie_info[:year])
-  movie = {
-    _id: movie_document_id,
-    title: movie_info[:title],
-    title_lower: movie_info[:title].downcase,
-    year: movie_info[:year],
-    created: current_date,
-    releases: Array.new
-  }
-  save_movie(movie, movies_collection)
+    # Create a movie.
+    movie_document_id = get_movie_document_id(movie_info[:title], movie_info[:year])
+    movie = {
+      _id: movie_document_id,
+      title: movie_info[:title],
+      title_lower: movie_info[:title].downcase,
+      year: movie_info[:year],
+      created: current_date,
+      releases: Array.new
+    }
+    save_movie(movie, movies_collection)
 
-  # Create a release
-  release = {
-    quality: movie_info[:quality],
-    url: movie_item.url,
-    date: movie_item.published,
-    created: current_date
-  }
-  save_release(release, movie_document_id, movies_collection)
+    # Create a release
+    release = {
+      quality: movie_info[:quality],
+      url: movie_item.url,
+      date: movie_item.published,
+      created: current_date
+    }
+    save_release(release, movie_document_id, movies_collection)
 
-  # $logger.debug("Parsed movie info: #{movie_info}")
+    # $logger.debug("Parsed movie info: #{movie_info}")
 
-  i += 1
+    i += 1
+  end
+
+  $logger.debug("======== only #{i}/#{feed_parsed.entries.length} were good")
 end
 
-$logger.debug("======== only #{i}/#{feed_parsed.entries.length} were good")
+get_latest_movies(vcdq_rss_url, movies_collection)
