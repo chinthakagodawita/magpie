@@ -2,7 +2,7 @@ require 'mongo'
 require 'logging'
 require 'net/https'
 require 'json'
-require 'api_keys'
+require './api_keys'
 
 PUSHOVER_API_URL = 'https://api.pushover.net/1/messages.json'
 
@@ -129,9 +129,9 @@ def find_matching_movie (title_lower, year, collection)
   }
 
   # Search using year too if we have a valid one.
-  if (year > -1) {
+  if (year > -1)
     search_params[:year] = year
-  }
+  end
 
   return collection.find_one(search_params)
 end
