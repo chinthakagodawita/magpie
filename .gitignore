@@ -1,6 +1,9 @@
 # Ignore all sublime working files
 *.sublime-*
 
+# Ignore sensitive information
+api_keys.rb
+
 # All log files
 *.log
 
