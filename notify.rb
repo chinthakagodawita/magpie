@@ -2,7 +2,7 @@ require 'mongo'
 require 'logging'
 require 'net/https'
 require 'json'
-require './api_keys'
+require_relative 'api_keys'
 
 PUSHOVER_API_URL = 'https://api.pushover.net/1/messages.json'
 
