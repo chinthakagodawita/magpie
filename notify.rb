@@ -5,6 +5,7 @@ require 'json'
 require_relative 'api_keys'
 require 'twilio-ruby'
 require 'pushover'
+require 'mandrill'
 
 PUSHOVER_API_URL = 'https://api.pushover.net/1/messages.json'
 
@@ -28,6 +29,9 @@ movies_collection = db.collection('movies')
 
 # Init Twilio.
 $twilio = Twilio::REST::Client.new(TWILIO_ACCOUNT_SID, TWILIO_TOKEN)
+
+# Init Mandrill.
+$mandrill = Mandrill::API.new(MANDRILL_API_KEY)
 
 def save_sample_notifications (collection)
   notification_1 = {
