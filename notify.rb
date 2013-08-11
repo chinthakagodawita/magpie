@@ -3,6 +3,8 @@ require 'logging'
 require 'net/https'
 require 'json'
 require_relative 'api_keys'
+require 'twilio-ruby'
+require 'pushover'
 
 PUSHOVER_API_URL = 'https://api.pushover.net/1/messages.json'
 
@@ -23,6 +25,9 @@ db = MongoClient.new('localhost', 27017).db('vcdq')
 notifications_collection = db.collection('notify')
 users_collection = db.collection('users')
 movies_collection = db.collection('movies')
+
+# Init Twilio.
+$twilio = Twilio::REST::Client.new(TWILIO_ACCOUNT_SID, TWILIO_TOKEN)
 
 def save_sample_notifications (collection)
   notification_1 = {
@@ -81,6 +86,10 @@ def build_notification_message (movie)
     releases.push(release['quality'])
   end
   return "Movie on watch list released: #{movie['title']}, Release(s): #{releases.join(', ')}"
+end
+
+def send_twilio_sms (message, user)
+
 end
 
 def send_pushover_notification (message, user)
