@@ -46,7 +46,7 @@ def get_suggestions (string)
         critics: result.ratings.critics_score,
         audience: result.ratings.audience_score
       },
-      img: result.original,
+      img: result.posters.original,
       api_ids: {
         rt: result.id,
         imdb: nil
