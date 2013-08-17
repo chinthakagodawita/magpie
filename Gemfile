@@ -1,0 +1,12 @@
+source 'https://www.rubygems.org'
+
+gem 'sinatra'
+gem 'bson_ext'
+gem 'mongo'
+gem 'feedzirra'
+gem 'mandrill'
+gem 'pushover'
+gem 'twilio-ruby'
+gem 'rottentomatoes'
+gem 'logging'
+gem 'sprockets', '~> 2.0'
